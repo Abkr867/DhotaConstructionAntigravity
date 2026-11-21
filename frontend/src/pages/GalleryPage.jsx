@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
+import { fetchProjectsFromSupabase } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -25,11 +26,20 @@ const GalleryPage = () => {
 
   const fetchProjects = useCallback(async () => {
     try {
-      const response = await axios.get(`${API}/projects`);
-      setProjects(response.data);
-      // Initialize image index for each project
+      let data = [];
+      try {
+        const response = await axios.get(`${API}/projects`);
+        if (response.data && response.data.length > 0) data = response.data;
+      } catch (err) {
+        // Fallback to direct Supabase query
+        data = await fetchProjectsFromSupabase();
+      }
+      if (!data || data.length === 0) {
+        data = await fetchProjectsFromSupabase();
+      }
+      setProjects(data);
       const initialIndex = {};
-      response.data.forEach(project => {
+      data.forEach(project => {
         initialIndex[project.id] = 0;
       });
       setCurrentImageIndex(initialIndex);
