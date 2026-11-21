@@ -1,0 +1,209 @@
+/* App-specific styles */
+.App {
+  min-height: 100vh;
+}
+
+/* Hero section overlay */
+.hero-overlay {
+  background: linear-gradient(
+    to right,
+    rgba(17, 24, 39, 0.95) 0%,
+    rgba(17, 24, 39, 0.7) 50%,
+    rgba(17, 24, 39, 0.4) 100%
+  );
+}
+
+/* Service card grid - Tetris style */
+.services-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .services-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .services-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stats counter animation */
+.stat-number {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
+
+/* Estimator control room style */
+.estimator-container {
+  background: linear-gradient(135deg, #0B2035 0%, #142E4F 55%, #1E3A63 100%);
+}
+
+/* Input focus states */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #D69A55 !important;
+  box-shadow: 0 0 0 2px rgba(214, 154, 85, 0.2);
+}
+
+/* Radio card styles */
+.radio-card {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.radio-card:hover {
+  border-color: #9CA3AF;
+}
+
+.radio-card.selected {
+  border-color: #D69A55;
+  background-color: rgba(214, 154, 85, 0.1);
+}
+
+/* Slider custom styles */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  background: #374151;
+  border-radius: 4px;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  background: #D69A55;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: #D69A55;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+}
+
+/* Map container */
+.map-container {
+  height: 400px;
+  width: 100%;
+  border: 2px solid #e5e7eb;
+}
+
+/* WhatsApp button pulse */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.whatsapp-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* Testimonial card */
+.testimonial-card {
+  position: relative;
+}
+
+.testimonial-card::before {
+  content: '"';
+  position: absolute;
+  top: -10px;
+  left: 20px;
+  font-size: 80px;
+  font-family: 'Oswald', sans-serif;
+  color: #D69A55;
+  opacity: 0.2;
+  line-height: 1;
+}
+
+/* Navigation active state */
+.nav-link {
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: #D69A55;
+  transition: width 0.2s ease;
+}
+
+.nav-link:hover::after,
+.nav-link.active::after {
+  width: 100%;
+}
+
+/* Section padding consistency */
+.section-padding {
+  padding: 5rem 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .section-padding {
+    padding: 6rem 2rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .section-padding {
+    padding: 8rem 4rem;
+  }
+}
+
+/* FAQ accordion custom */
+.faq-item {
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.faq-item:last-child {
+  border-bottom: none;
+}
+
+/* Loading skeleton */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #f3f4f6 0%,
+    #e5e7eb 50%,
+    #f3f4f6 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
