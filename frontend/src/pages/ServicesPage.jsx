@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
+import { SERVICES } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -25,16 +26,16 @@ const iconMap = {
 };
 
 const ServicesPage = () => {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState(SERVICES);
 
   useEffect(() => {
     document.title = "Our Services - Dhota Construction";
     const fetchServices = async () => {
       try {
         const response = await axios.get(`${API}/services`);
-        setServices(response.data);
+        if (response.data && response.data.length > 0) setServices(response.data);
       } catch (error) {
-        console.error("Error fetching services:", error);
+        setServices(SERVICES);
       }
     };
     fetchServices();

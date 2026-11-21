@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import axios from "axios";
+import { submitInquiryToSupabase, FAQS } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -49,10 +50,14 @@ const ContactPage = () => {
     const fetchFaqs = async () => {
       try {
         const response = await axios.get(`${API}/faqs`);
-        setFaqs(response.data);
+        if (response.data && response.data.length > 0) {
+          setFaqs(response.data);
+          return;
+        }
       } catch (error) {
-        console.error("Error fetching FAQs:", error);
+        // Fallback to embedded FAQs
       }
+      setFaqs(FAQS);
     };
     fetchFaqs();
   }, []);
@@ -73,10 +78,17 @@ const ContactPage = () => {
     try {
       const submitData = {
         ...formData,
-        estimated_area: formData.estimated_area ? parseInt(formData.estimated_area) : null
+        estimated_area: formData.estimated_area ? parseInt(formData.estimated_area, 10) : null
       };
       
-      await axios.post(`${API}/inquiries`, submitData);
+      // Submit directly to Supabase over HTTPS (guaranteed on GitHub Pages & mobile)
+      try {
+        await submitInquiryToSupabase(submitData);
+      } catch (sbErr) {
+        console.warn("Direct Supabase submit warning, trying API fallback:", sbErr);
+        await axios.post(`${API}/inquiries`, submitData);
+      }
+
       setIsSubmitted(true);
       toast.success("Inquiry submitted successfully! We'll contact you soon.");
       setFormData({

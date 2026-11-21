@@ -2,21 +2,22 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Target, Eye, Award, Shield, Lightbulb, Users } from "lucide-react";
 import axios from "axios";
+import { COMPANY_INFO } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
 
 const AboutPage = () => {
-  const [companyInfo, setCompanyInfo] = useState(null);
+  const [companyInfo, setCompanyInfo] = useState(COMPANY_INFO);
 
   useEffect(() => {
     document.title = "About Us - Dhota Construction";
     const fetchCompanyInfo = async () => {
       try {
         const response = await axios.get(`${API}/company-info`);
-        setCompanyInfo(response.data);
+        if (response.data) setCompanyInfo(response.data);
       } catch (error) {
-        console.error("Error fetching company info:", error);
+        setCompanyInfo(COMPANY_INFO);
       }
     };
     fetchCompanyInfo();

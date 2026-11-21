@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import axios from "axios";
+import { fetchReviewsFromSupabase, submitReviewToSupabase } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -30,8 +31,17 @@ const ReviewPage = () => {
 
   const fetchTestimonials = useCallback(async () => {
     try {
-      const response = await axios.get(`${API}/reviews`);
-      setTestimonials(response.data);
+      let data = [];
+      try {
+        const response = await axios.get(`${API}/reviews`);
+        if (response.data && response.data.length > 0) data = response.data;
+      } catch (err) {
+        data = await fetchReviewsFromSupabase();
+      }
+      if (!data || data.length === 0) {
+        data = await fetchReviewsFromSupabase();
+      }
+      setTestimonials(data);
     } catch (error) {
       console.error("Error fetching testimonials:", error);
     }
@@ -60,10 +70,17 @@ const ReviewPage = () => {
     setIsSubmittingReview(true);
 
     try {
-      await axios.post(`${API}/reviews`, {
-        ...reviewFormData,
-        image_urls: []
-      });
+      try {
+        await submitReviewToSupabase({
+          ...reviewFormData,
+          image_urls: []
+        });
+      } catch (sbErr) {
+        await axios.post(`${API}/reviews`, {
+          ...reviewFormData,
+          image_urls: []
+        });
+      }
 
       toast.success("Review submitted successfully! It will be visible after admin approval.");
       

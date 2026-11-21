@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
+import { SERVICES, COMPANY_INFO, fetchReviewsFromSupabase } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -33,9 +34,9 @@ const iconMap = {
 const COMPANY_LOGO = "https://customer-assets.emergentagent.com/job_construct-dhota/artifacts/u7scmm47_WhatsApp%20Image%202025-12-25%20at%2019.24.16.jpeg";
 
 const HomePage = () => {
-  const [services, setServices] = useState([]);
+  const [services, setServices] = useState(SERVICES.slice(0, 4));
   const [testimonials, setTestimonials] = useState([]);
-  const [companyInfo, setCompanyInfo] = useState(null);
+  const [companyInfo, setCompanyInfo] = useState(COMPANY_INFO);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   useEffect(() => {
@@ -43,13 +44,13 @@ const HomePage = () => {
     const fetchData = async () => {
       try {
         const [servicesRes, testimonialsRes, companyRes] = await Promise.all([
-          axios.get(`${API}/services`),
-          axios.get(`${API}/testimonials`),
-          axios.get(`${API}/company-info`)
+          axios.get(`${API}/services`).catch(() => ({ data: SERVICES })),
+          axios.get(`${API}/testimonials`).catch(() => fetchReviewsFromSupabase().then(r => ({ data: r }))),
+          axios.get(`${API}/company-info`).catch(() => ({ data: COMPANY_INFO }))
         ]);
-        setServices(servicesRes.data.slice(0, 4));
-        setTestimonials(testimonialsRes.data);
-        setCompanyInfo(companyRes.data);
+        if (servicesRes.data && servicesRes.data.length > 0) setServices(servicesRes.data.slice(0, 4));
+        if (testimonialsRes.data && testimonialsRes.data.length > 0) setTestimonials(testimonialsRes.data);
+        if (companyRes.data) setCompanyInfo(companyRes.data);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
