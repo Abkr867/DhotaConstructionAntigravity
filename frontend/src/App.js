@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -21,7 +21,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 function App() {
   return (
     <div className="App min-h-screen flex flex-col">
-      <BrowserRouter>
+      <HashRouter>
         <Routes>
           {/* Public Routes */}
           <Route path="/" element={<><Navbar /><main className="flex-1"><HomePage /></main><Footer /><WhatsAppButton /></>} />
@@ -38,9 +38,11 @@ function App() {
           <Route path="/admin/inquiries" element={<ProtectedRoute><AdminInquiries /></ProtectedRoute>} />
           <Route path="/admin/projects" element={<ProtectedRoute><AdminProjects /></ProtectedRoute>} />
           <Route path="/admin/reviews" element={<ProtectedRoute><AdminReviews /></ProtectedRoute>} />
+          {/* Catch-all fallback */}
+          <Route path="*" element={<><Navbar /><main className="flex-1"><HomePage /></main><Footer /><WhatsAppButton /></>} />
         </Routes>
         <Toaster position="top-right" />
-      </BrowserRouter>
+      </HashRouter>
     </div>
   );
 }

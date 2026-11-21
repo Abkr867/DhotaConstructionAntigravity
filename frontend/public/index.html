@@ -20,13 +20,12 @@
         <meta name="twitter:image" content="https://customer-assets.emergentagent.com/job_2c8d715e-ac93-411d-84c5-b137800f1442/artifacts/553e9g6c_Gemini_Generated_Image_m8lbuqm8lbuqm8lb.png" />
         
         <title>Dhota Construction - Building Your Dreams</title>
-        <script src="https://assets.emergent.sh/scripts/emergent-main.js"></script>
-        <!--
-        These two scripts have been added for the Visual Edits, please do not edit or remove them
-        -->
+        <!-- Emergent scripts (only inside iframe) -->
         <script>
-            // Only load visual edit scripts when inside an iframe
             if (window.self !== window.top) {
+                var emergentScript = document.createElement('script');
+                emergentScript.src = 'https://assets.emergent.sh/scripts/emergent-main.js';
+                document.head.appendChild(emergentScript);
                 // Load debug monitor script
                 var debugMonitorScript = document.createElement('script');
                 debugMonitorScript.src = 'https://assets.emergent.sh/scripts/debug-monitor.js';
