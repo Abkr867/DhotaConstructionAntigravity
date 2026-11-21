@@ -1,0 +1,17 @@
+Page Title Updates:
+
+Public Pages - 'Dhota Construction':
+- HomePage
+- AboutPage  
+- ServicesPage
+- GalleryPage ✓
+- ReviewPage ✓
+- EstimatorPage
+- ContactPage
+
+Admin Pages - 'Dhota Admin':
+- AdminDashboard
+- AdminInquiries
+- AdminProjects
+- AdminReviews
+- AdminLogin
