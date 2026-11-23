@@ -137,6 +137,8 @@ const ServicesPage = () => {
                       <img
                         src={getServiceImage(service.id)}
                         alt={service.title}
+                        loading="lazy"
+                        decoding="async"
                         className="w-full h-[400px] object-scale-down"
                       />
                       <div className="absolute top-4 left-4 bg-[#D69A55] text-white px-4 py-2 text-sm font-semibold uppercase tracking-wider">

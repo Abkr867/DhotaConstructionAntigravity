@@ -223,6 +223,8 @@ const GalleryPage = () => {
                           <img
                             src={projectImages[currentIndex]}
                             alt={`${project.title} - Image ${currentIndex + 1}`}
+                            loading="lazy"
+                            decoding="async"
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                             onError={(e) => {
                               e.target.src = 'https://images.unsplash.com/photo-1706808049803-f61304e024ab?w=600';
