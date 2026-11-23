@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
@@ -51,9 +51,12 @@ const AdminProjects = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProject, setEditingProject] = useState(null);
+  const fileInputRef = useRef(null);
+  const [existingImages, setExistingImages] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
-  const [imagePreviews, setImagePreviews] = useState([]);
+  const [newPreviews, setNewPreviews] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -105,46 +108,66 @@ const AdminProjects = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleFileChange = (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
-    
-    // Validate file count
-    if (files.length > 10) {
-      toast.error("Maximum 10 images allowed");
+  const handleFilesAdded = (filesList) => {
+    if (!filesList || filesList.length === 0) return;
+    const incoming = Array.from(filesList);
+
+    const currentTotal = existingImages.length + selectedFiles.length;
+    const maxAllowed = 15;
+
+    if (currentTotal >= maxAllowed) {
+      toast.error(`Maximum limit of ${maxAllowed} images reached for this project.`);
       return;
     }
-    
-    // Validate each file
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+
     const validFiles = [];
     const previews = [];
-    
-    for (const file of files) {
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`Invalid file type: ${file.name}. Please upload JPG, PNG, or GIF images only.`);
+
+    for (const file of incoming) {
+      if (currentTotal + validFiles.length >= maxAllowed) {
+        toast.warning(`Only up to ${maxAllowed} images can be added.`);
+        break;
+      }
+
+      // Check if image
+      const isImage = file.type.startsWith("image/") || /\.(jpg|jpeg|png|webp|gif|bmp)$/i.test(file.name);
+      if (!isImage) {
+        toast.error(`"${file.name}" is not a recognized image format.`);
         continue;
       }
-      
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`File too large: ${file.name}. Maximum size is 5MB.`);
+
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds 10MB limit.`);
         continue;
       }
-      
+
       validFiles.push(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        previews.push(reader.result);
-        if (previews.length === validFiles.length) {
-          setImagePreviews(previews);
-        }
-      };
-      reader.readAsDataURL(file);
+      previews.push(URL.createObjectURL(file));
     }
-    
-    setSelectedFiles(validFiles);
+
+    if (validFiles.length > 0) {
+      setSelectedFiles((prev) => [...prev, ...validFiles]);
+      setNewPreviews((prev) => [...prev, ...previews]);
+      toast.success(`Added ${validFiles.length} image${validFiles.length > 1 ? "s" : ""}. Total: ${currentTotal + validFiles.length}`);
+    }
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const removeExistingImage = (index) => {
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
+    toast.info("Image removed from project");
+  };
+
+  const removeNewFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setNewPreviews((prev) => {
+      if (prev[index]) URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+    toast.info("Image removed");
   };
 
   const uploadImages = async () => {
@@ -175,7 +198,7 @@ const AdminProjects = () => {
         },
       });
       
-      return response.data.image_urls;
+      return response.data.image_urls || [];
     } catch (error) {
       console.error("Error uploading images:", error);
       toast.error("Failed to upload images");
@@ -188,29 +211,38 @@ const AdminProjects = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Check if image is provided
-    if (!editingProject && selectedFiles.length === 0) {
-      toast.error("Please select at least one image for the project");
+    const totalImagesCount = existingImages.length + selectedFiles.length;
+    if (totalImagesCount === 0) {
+      toast.error("Please add at least one image for the project");
       return;
     }
     
+    setIsUploading(true);
     try {
-      let projectData = { ...formData };
+      let newlyUploadedUrls = [];
       
-      // Upload new images if files are selected
       if (selectedFiles.length > 0) {
-        const imageUrls = await uploadImages();
-        
-        if (imageUrls.length === 0) {
-          return; // Upload failed
+        toast.info(`Uploading ${selectedFiles.length} new image(s)...`);
+        newlyUploadedUrls = await uploadImages();
+        if (newlyUploadedUrls.length === 0) {
+          toast.error("Failed to upload new images. Please try again.");
+          setIsUploading(false);
+          return;
         }
-        
-        projectData = {
-          ...formData,
-          image_url: imageUrls[0],
-          images: imageUrls.length > 1 ? imageUrls.slice(1) : []
-        };
       }
+
+      const allFinalImages = [...existingImages, ...newlyUploadedUrls];
+      if (allFinalImages.length === 0) {
+        toast.error("No images available to save");
+        setIsUploading(false);
+        return;
+      }
+      
+      const projectData = {
+        ...formData,
+        image_url: allFinalImages[0],
+        images: allFinalImages.length > 1 ? allFinalImages.slice(1) : []
+      };
       
       // 1. Direct Supabase Save
       try {
@@ -250,6 +282,8 @@ const AdminProjects = () => {
     } catch (error) {
       console.error("Error saving project:", error);
       toast.error("Failed to save project");
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -282,17 +316,18 @@ const AdminProjects = () => {
     if (project) {
       setEditingProject(project);
       setFormData({
-        title: project.title,
-        description: project.description,
-        category: project.category,
-        location: project.location,
-        image_url: project.image_url,
+        title: project.title || "",
+        description: project.description || "",
+        category: project.category || "residential",
+        location: project.location || "",
+        image_url: project.image_url || "",
         images: project.images || [],
-        is_featured: project.is_featured
+        is_featured: !!project.is_featured
       });
-      const allImages = [project.image_url, ...(project.images || [])];
-      setImagePreviews(allImages);
+      const allImages = [project.image_url, ...(project.images || [])].filter(Boolean);
+      setExistingImages(allImages);
       setSelectedFiles([]);
+      setNewPreviews([]);
     } else {
       setEditingProject(null);
       setFormData({
@@ -304,8 +339,9 @@ const AdminProjects = () => {
         images: [],
         is_featured: false
       });
-      setImagePreviews([]);
+      setExistingImages([]);
       setSelectedFiles([]);
+      setNewPreviews([]);
     }
     setIsModalOpen(true);
   };
@@ -313,8 +349,12 @@ const AdminProjects = () => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingProject(null);
+    setExistingImages([]);
+    newPreviews.forEach(url => {
+      try { URL.revokeObjectURL(url); } catch (_) {}
+    });
     setSelectedFiles([]);
-    setImagePreviews([]);
+    setNewPreviews([]);
     setFormData({
       title: "",
       description: "",
@@ -570,87 +610,157 @@ const AdminProjects = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Project Images * (Select multiple images)
-              </label>
-              
-              {/* File Upload Area */}
-              <div className="space-y-3">
-                <label 
-                  htmlFor="image-upload"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-none cursor-pointer hover:bg-gray-50 transition-colors"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    {isUploading ? (
-                      <div className="text-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#D69A55] mx-auto mb-2"></div>
-                        <p className="text-sm text-gray-500">Uploading...</p>
-                      </div>
-                    ) : imagePreviews.length > 0 ? (
-                      <div className="text-center">
-                        <div className="flex gap-2 flex-wrap justify-center mb-2">
-                          {imagePreviews.slice(0, 3).map((preview, idx) => (
-                            <img 
-                              key={idx}
-                              src={preview} 
-                              alt={`Preview ${idx + 1}`} 
-                              className="h-20 w-20 object-cover"
-                            />
-                          ))}
-                          {imagePreviews.length > 3 && (
-                            <div className="h-20 w-20 bg-gray-200 flex items-center justify-center text-gray-600 font-semibold">
-                              +{imagePreviews.length - 3}
-                            </div>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-500">{imagePreviews.length} image(s) selected</p>
-                        <p className="text-xs text-gray-400 mt-1">Click to change images</p>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                        <p className="text-sm text-gray-500">
-                          <span className="font-semibold text-[#D69A55]">Click to upload</span> or drag and drop
-                        </p>
-                        <p className="text-xs text-gray-400">Select multiple images (max 10, 5MB each)</p>
-                        <p className="text-xs text-gray-400">JPG, PNG, GIF</p>
-                      </>
-                    )}
-                  </div>
-                  <input
-                    id="image-upload"
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/gif"
-                    multiple
-                    onChange={handleFileChange}
-                    className="hidden"
-                  />
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Project Images * ({existingImages.length + selectedFiles.length} of 15 added)
                 </label>
-                
-                {selectedFiles.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-gray-700">Selected Files:</p>
-                    {selectedFiles.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <div className="flex items-center gap-2">
-                          <ImageIcon className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">{file.name}</span>
+                {(existingImages.length > 0 || selectedFiles.length > 0) && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7 gap-1 border-[#D69A55] text-[#D69A55] hover:bg-[#D69A55] hover:text-white"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add More Images
+                  </Button>
+                )}
+              </div>
+              
+              <div className="space-y-3">
+                {/* Drag and Drop / Click Area */}
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDragging(false);
+                    if (e.dataTransfer?.files) handleFilesAdded(e.dataTransfer.files);
+                  }}
+                  className={`flex flex-col items-center justify-center w-full min-h-[110px] p-4 border-2 border-dashed rounded cursor-pointer transition-colors ${
+                    isDragging 
+                      ? "border-[#D69A55] bg-amber-50" 
+                      : "border-gray-300 hover:border-[#D69A55] hover:bg-gray-50"
+                  }`}
+                >
+                  {isUploading ? (
+                    <div className="text-center py-2">
+                      <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-[#D69A55] mx-auto mb-2"></div>
+                      <p className="text-xs font-medium text-gray-600">Uploading images to Supabase...</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-[#D69A55] mb-1.5" />
+                      <p className="text-sm font-semibold text-gray-700 text-center">
+                        <span className="text-[#D69A55] underline">Click to choose images</span> or drag & drop here
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1 text-center">
+                        Select multiple images at once (hold <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px]">Ctrl</kbd> or <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-[10px]">Shift</kbd>) or click again to add more
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">Supports JPG, PNG, WEBP, GIF (up to 10MB each, max 15)</p>
+                    </>
+                  )}
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  id="image-upload"
+                  type="file"
+                  accept="image/*,.jpg,.jpeg,.png,.webp,.gif"
+                  multiple
+                  onChange={(e) => handleFilesAdded(e.target.files)}
+                  className="hidden"
+                />
+
+                {/* Thumbnails Gallery Grid */}
+                {(existingImages.length > 0 || newPreviews.length > 0) && (
+                  <div className="border border-gray-200 p-3 bg-gray-50/70 rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                        Project Gallery Preview ({existingImages.length + newPreviews.length} images)
+                      </span>
+                      <span className="text-[11px] text-gray-500">First image will be the Cover photo</span>
+                    </div>
+
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2.5">
+                      {/* Existing saved images */}
+                      {existingImages.map((url, idx) => (
+                        <div key={`exist-${idx}`} className="relative group rounded overflow-hidden border border-gray-300 bg-white shadow-sm aspect-square">
+                          <img 
+                            src={url} 
+                            alt={`Existing ${idx + 1}`} 
+                            className="w-full h-full object-cover"
+                          />
+                          {idx === 0 && (
+                            <span className="absolute top-1 left-1 bg-[#D69A55] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                              Cover
+                            </span>
+                          )}
+                          <span className="absolute bottom-1 left-1 bg-black/60 text-white text-[9px] px-1 rounded">
+                            Saved
+                          </span>
+                          <button
+                            type="button"
+                            title="Remove image"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeExistingImage(idx);
+                            }}
+                            className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white p-1 rounded-full shadow transition-all"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
-                        <Button
+                      ))}
+
+                      {/* Newly selected files */}
+                      {newPreviews.map((preview, idx) => {
+                        const isCover = existingImages.length === 0 && idx === 0;
+                        return (
+                          <div key={`new-${idx}`} className="relative group rounded overflow-hidden border-2 border-emerald-500 bg-white shadow-sm aspect-square">
+                            <img 
+                              src={preview} 
+                              alt={`New upload ${idx + 1}`} 
+                              className="w-full h-full object-cover"
+                            />
+                            {isCover && (
+                              <span className="absolute top-1 left-1 bg-[#D69A55] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow">
+                                Cover
+                              </span>
+                            )}
+                            <span className="absolute bottom-1 left-1 bg-emerald-600 text-white text-[9px] font-semibold px-1 rounded">
+                              New
+                            </span>
+                            <button
+                              type="button"
+                              title="Remove image"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeNewFile(idx);
+                              }}
+                              className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white p-1 rounded-full shadow transition-all"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      {/* Add more tile in the grid */}
+                      {existingImages.length + newPreviews.length < 15 && (
+                        <button
                           type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            const newFiles = selectedFiles.filter((_, i) => i !== idx);
-                            const newPreviews = imagePreviews.filter((_, i) => i !== idx);
-                            setSelectedFiles(newFiles);
-                            setImagePreviews(newPreviews);
-                          }}
+                          onClick={() => fileInputRef.current?.click()}
+                          className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-gray-300 hover:border-[#D69A55] rounded text-gray-500 hover:text-[#D69A55] hover:bg-white transition-all"
                         >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    ))}
+                          <Plus className="w-5 h-5 mb-0.5" />
+                          <span className="text-[11px] font-medium">Add More</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
