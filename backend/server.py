@@ -26,12 +26,12 @@ SUPABASE_BUCKET = os.environ.get("SUPABASE_BUCKET", "dhota-construction")
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # JWT Configuration
-JWT_SECRET = os.environ.get('JWT_SECRET', 'dhota-construction-secret-key-2024')
+JWT_SECRET = os.environ.get('JWT_SECRET', os.environ.get('SUPABASE_JWT_SECRET', ''))
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
 # Admin Registration Secret
-ADMIN_SECRET_KEY = os.environ.get('ADMIN_SECRET_KEY', 'DHOTA@ADMIN#2024')
+ADMIN_SECRET_KEY = os.environ.get('ADMIN_SECRET_KEY', '')
 
 # Create the main app
 app = FastAPI()
@@ -217,22 +217,40 @@ def verify_password(password: str, password_hash: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), password_hash.encode('utf-8'))
 
 def create_token(user_id: str, username: str) -> str:
+    secret = JWT_SECRET or "dhota-fallback-key"
     payload = {
         "user_id": user_id,
         "username": username,
         "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     }
-    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    return jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    # 1. Verify via Supabase Auth
     try:
-        token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        user_res = supabase.auth.get_user(token)
+        if user_res and user_res.user:
+            return {
+                "user_id": user_res.user.id,
+                "username": user_res.user.user_metadata.get("username", "admin"),
+                "email": user_res.user.email,
+                "role": user_res.user.app_metadata.get("role", "admin")
+            }
+    except Exception:
+        pass
+
+    # 2. Fallback to local JWT decode if JWT_SECRET is configured
+    if JWT_SECRET:
+        try:
+            payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            return payload
+        except jwt.ExpiredSignatureError:
+            raise HTTPException(status_code=401, detail="Token has expired")
+        except jwt.InvalidTokenError:
+            pass
+
+    raise HTTPException(status_code=401, detail="Invalid token")
 
 # ==================== ESTIMATOR DEFAULTS ====================
 
@@ -792,17 +810,32 @@ async def admin_register(data: AdminRegister):
 
 @api_router.post("/admin/login")
 async def admin_login(data: AdminLogin):
-    """Login admin user using Supabase"""
+    """Login admin user using Supabase Auth or database"""
+    # 1. Authenticate via Supabase Auth first
+    try:
+        email = data.username if "@" in data.username else "admin@dhotaconstruction.com"
+        auth_res = supabase.auth.sign_in_with_password({"email": email, "password": data.password})
+        if auth_res and auth_res.session and auth_res.user:
+            return {
+                "token": auth_res.session.access_token,
+                "user": {
+                    "id": auth_res.user.id,
+                    "username": auth_res.user.user_metadata.get("username", data.username),
+                    "email": auth_res.user.email
+                }
+            }
+    except Exception as e:
+        logging.info(f"Supabase auth attempt returned: {e}")
+
+    # 2. Fallback to public.admins check
     res = supabase.table("admins").select("*").eq("username", data.username).execute()
-    if not res.data or len(res.data) == 0:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    admin = res.data[0]
-    if not verify_password(data.password, admin['password_hash']):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    token = create_token(admin['id'], admin['username'])
-    return {"token": token, "user": {"id": admin['id'], "username": admin['username'], "email": admin['email']}}
+    if res.data and len(res.data) > 0:
+        admin = res.data[0]
+        if verify_password(data.password, admin.get('password_hash', '')):
+            token = create_token(admin['id'], admin['username'])
+            return {"token": token, "user": {"id": admin['id'], "username": admin['username'], "email": admin['email']}}
+
+    raise HTTPException(status_code=401, detail="Invalid credentials")
 
 @api_router.post("/admin/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest):

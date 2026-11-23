@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import axios from "axios";
+import { signInAdmin } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -53,6 +54,20 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
+      // 1. Authenticate with Supabase Auth
+      try {
+        const { user } = await signInAdmin(formData.username, formData.password);
+        toast.success(`Welcome back, ${user.username || "Admin"}!`);
+        navigate("/admin");
+        return;
+      } catch (sbError) {
+        console.warn("Supabase auth attempted:", sbError.message);
+        if (sbError.message && (sbError.message.includes("Invalid login credentials") || sbError.message.includes("Email not confirmed"))) {
+          throw new Error("Invalid username/email or password.");
+        }
+      }
+
+      // 2. Fallback to API endpoint
       const response = await axios.post(`${API}/admin/login`, {
         username: formData.username,
         password: formData.password
@@ -64,7 +79,7 @@ const AdminLogin = () => {
       toast.success("Welcome back!");
       navigate("/admin");
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Invalid credentials");
+      toast.error(error.response?.data?.detail || error.message || "Invalid credentials");
     } finally {
       setIsLoading(false);
     }

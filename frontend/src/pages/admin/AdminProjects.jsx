@@ -33,6 +33,14 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import axios from "axios";
+import { 
+  fetchAdminProjectsFromSupabase, 
+  createProjectInSupabase, 
+  updateProjectInSupabase, 
+  deleteProjectFromSupabase, 
+  uploadImageToSupabase, 
+  signOutAdmin 
+} from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -56,14 +64,22 @@ const AdminProjects = () => {
     is_featured: false
   });
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+  const handleLogout = useCallback(async () => {
+    await signOutAdmin();
     navigate("/admin/login");
   }, [navigate]);
 
   const fetchProjects = useCallback(async () => {
     try {
+      try {
+        const data = await fetchAdminProjectsFromSupabase();
+        setProjects(data);
+        setIsLoading(false);
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase projects fetch fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       const response = await axios.get(`${API}/admin/projects`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -136,6 +152,15 @@ const AdminProjects = () => {
     
     setIsUploading(true);
     try {
+      // 1. Direct Supabase Storage upload
+      try {
+        const uploadPromises = selectedFiles.map(file => uploadImageToSupabase(file, "projects"));
+        const uploadedUrls = await Promise.all(uploadPromises);
+        return uploadedUrls;
+      } catch (sbErr) {
+        console.warn("Direct Supabase storage upload fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       const formDataUpload = new FormData();
       
@@ -170,7 +195,6 @@ const AdminProjects = () => {
     }
     
     try {
-      const token = localStorage.getItem("adminToken");
       let projectData = { ...formData };
       
       // Upload new images if files are selected
@@ -188,6 +212,23 @@ const AdminProjects = () => {
         };
       }
       
+      // 1. Direct Supabase Save
+      try {
+        if (editingProject) {
+          await updateProjectInSupabase(editingProject.id, projectData);
+          toast.success("Project updated successfully");
+        } else {
+          await createProjectInSupabase(projectData);
+          toast.success("Project created successfully");
+        }
+        fetchProjects();
+        closeModal();
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase save fallback:", sbErr);
+      }
+
+      const token = localStorage.getItem("adminToken");
       if (editingProject) {
         await axios.put(
           `${API}/admin/projects/${editingProject.id}`,
@@ -216,6 +257,15 @@ const AdminProjects = () => {
     if (!window.confirm("Are you sure you want to delete this project?")) return;
     
     try {
+      try {
+        await deleteProjectFromSupabase(projectId);
+        toast.success("Project deleted successfully");
+        fetchProjects();
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase delete fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.delete(`${API}/admin/projects/${projectId}`, {
         headers: { Authorization: `Bearer ${token}` }

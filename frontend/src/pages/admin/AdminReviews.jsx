@@ -16,6 +16,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
+import { 
+  fetchAdminReviewsFromSupabase, 
+  updateReviewStatusInSupabase, 
+  updateReviewImageApprovalInSupabase, 
+  deleteReviewFromSupabase, 
+  signOutAdmin 
+} from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -26,14 +33,22 @@ const AdminReviews = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedReviews, setExpandedReviews] = useState(new Set());
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+  const handleLogout = useCallback(async () => {
+    await signOutAdmin();
     navigate("/admin/login");
   }, [navigate]);
 
   const fetchReviews = useCallback(async () => {
     try {
+      try {
+        const data = await fetchAdminReviewsFromSupabase();
+        setReviews(data);
+        setIsLoading(false);
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase reviews fetch fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       const response = await axios.get(`${API}/admin/reviews`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -56,6 +71,15 @@ const AdminReviews = () => {
 
   const updateReviewStatus = async (reviewId, status) => {
     try {
+      try {
+        await updateReviewStatusInSupabase(reviewId, status);
+        toast.success(`Review ${status} successfully`);
+        fetchReviews();
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase update review status fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.put(
         `${API}/admin/reviews/${reviewId}`,
@@ -72,6 +96,15 @@ const AdminReviews = () => {
 
   const updateImageApproval = async (reviewId, imageUrl, approved) => {
     try {
+      try {
+        await updateReviewImageApprovalInSupabase(reviewId, imageUrl, approved);
+        toast.success(`Image ${approved ? 'approved' : 'rejected'} successfully`);
+        fetchReviews();
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase update image approval fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.put(
         `${API}/admin/reviews/${reviewId}/images`,
@@ -90,6 +123,15 @@ const AdminReviews = () => {
     if (!window.confirm("Are you sure you want to delete this review?")) return;
     
     try {
+      try {
+        await deleteReviewFromSupabase(reviewId);
+        toast.success("Review deleted successfully");
+        fetchReviews();
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase delete review fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.delete(`${API}/admin/reviews/${reviewId}`, {
         headers: { Authorization: `Bearer ${token}` }
