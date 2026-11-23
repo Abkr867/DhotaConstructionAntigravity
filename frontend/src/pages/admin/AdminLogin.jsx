@@ -13,7 +13,12 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import axios from "axios";
-import { signInAdmin } from "@/lib/supabase";
+import { 
+  signInAdmin, 
+  forgotPasswordInSupabase, 
+  resetPasswordInSupabase, 
+  registerAdminInSupabase 
+} from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -90,6 +95,28 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
+      // 1. Direct Supabase Registration using secret key stored in Supabase
+      try {
+        await registerAdminInSupabase(
+          formData.username,
+          formData.email,
+          formData.password,
+          formData.admin_secret,
+          formData.security_question,
+          formData.security_answer
+        );
+        toast.success("Account created successfully!");
+        await signInAdmin(formData.email, formData.password);
+        navigate("/admin");
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase registration attempt:", sbErr.message);
+        if (sbErr.message && (sbErr.message.includes("Invalid admin secret key") || sbErr.message.includes("Username already exists"))) {
+          throw sbErr;
+        }
+      }
+
+      // 2. Fallback to API
       const response = await axios.post(`${API}/admin/register`, {
         username: formData.username,
         email: formData.email,
@@ -105,7 +132,7 @@ const AdminLogin = () => {
       toast.success("Account created successfully!");
       navigate("/admin");
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Registration failed");
+      toast.error(error.response?.data?.detail || error.message || "Registration failed");
     } finally {
       setIsLoading(false);
     }
@@ -116,6 +143,22 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
+      // 1. Direct Supabase Forgot Password using secret key stored in Supabase
+      try {
+        const res = await forgotPasswordInSupabase(formData.email, formData.admin_secret);
+        setSecurityQuestion(res.security_question || "What is the company name?");
+        setRetrievedUsername(res.username || formData.email.split("@")[0]);
+        setMode("reset");
+        toast.success("Please answer your security question");
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase forgot password attempt:", sbErr.message);
+        if (sbErr.message && (sbErr.message.includes("Invalid admin secret key") || sbErr.message.includes("Admin email not found"))) {
+          throw sbErr;
+        }
+      }
+
+      // 2. Fallback to API
       const response = await axios.post(`${API}/admin/forgot-password`, {
         email: formData.email,
         admin_secret: formData.admin_secret
@@ -126,7 +169,7 @@ const AdminLogin = () => {
       setMode("reset");
       toast.success("Please answer your security question");
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Invalid email or admin secret key");
+      toast.error(error.response?.data?.detail || error.message || "Invalid email or admin secret key");
     } finally {
       setIsLoading(false);
     }
@@ -137,6 +180,26 @@ const AdminLogin = () => {
     setIsLoading(true);
 
     try {
+      // 1. Direct Supabase Reset Password
+      try {
+        await resetPasswordInSupabase(
+          formData.email,
+          formData.new_password,
+          formData.security_answer,
+          formData.admin_secret
+        );
+        toast.success("Password reset successfully! Please login with your new password.");
+        setMode("login");
+        setFormData({ ...formData, password: "", security_answer: "", new_password: "", admin_secret: "" });
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase reset password attempt:", sbErr.message);
+        if (sbErr.message && sbErr.message.includes("Incorrect security answer")) {
+          throw sbErr;
+        }
+      }
+
+      // 2. Fallback to API
       await axios.post(`${API}/admin/reset-password`, {
         email: formData.email,
         security_answer: formData.security_answer,
@@ -147,7 +210,7 @@ const AdminLogin = () => {
       setMode("login");
       setFormData({ ...formData, password: "", security_answer: "", new_password: "", admin_secret: "" });
     } catch (error) {
-      toast.error(error.response?.data?.detail || "Reset failed. Check your security answer.");
+      toast.error(error.response?.data?.detail || error.message || "Reset failed. Check your security answer.");
     } finally {
       setIsLoading(false);
     }

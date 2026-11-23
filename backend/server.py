@@ -775,12 +775,35 @@ async def get_projects():
         logging.error(f"Error fetching public projects from Supabase: {e}")
         return []
 
-# ==================== ADMIN AUTH ROUTES ====================
+# ==================== ADMIN AUTH HELPERS & ROUTES ====================
+
+def check_admin_secret(secret_attempt: str) -> bool:
+    clean_secret = (secret_attempt or "").strip()
+    if not clean_secret:
+        return False
+    # 1. Check via Supabase RPC
+    try:
+        rpc_res = supabase.rpc("verify_admin_secret", {"secret_attempt": clean_secret}).execute()
+        if rpc_res.data is True:
+            return True
+    except Exception as e:
+        logging.warning(f"Error checking secret via Supabase RPC: {e}")
+    
+    # 2. Check app_settings directly
+    try:
+        res = supabase.table("app_settings").select("value").eq("key", "admin_secret_key").execute()
+        if res.data and len(res.data) > 0:
+            return clean_secret == (res.data[0].get("value") or "").strip()
+    except Exception as e:
+        logging.warning(f"Error querying app_settings: {e}")
+        
+    fallback = os.environ.get("ADMIN_SECRET_KEY", "DHOTA@ADMIN#2024")
+    return clean_secret == fallback.strip()
 
 @api_router.post("/admin/register")
 async def admin_register(data: AdminRegister):
-    """Register a new admin user - requires secret key"""
-    if data.admin_secret != ADMIN_SECRET_KEY:
+    """Register a new admin user - requires secret key verified in Supabase"""
+    if not check_admin_secret(data.admin_secret):
         raise HTTPException(status_code=403, detail="Invalid admin registration key. Contact system administrator.")
     
     # Check if admin already exists
@@ -839,8 +862,26 @@ async def admin_login(data: AdminLogin):
 
 @api_router.post("/admin/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest):
-    if data.admin_secret != ADMIN_SECRET_KEY:
+    if not check_admin_secret(data.admin_secret):
         raise HTTPException(status_code=403, detail="Invalid admin secret key.")
+    
+    # Try calling Supabase RPC first
+    try:
+        rpc_res = supabase.rpc("admin_forgot_password", {
+            "admin_email": data.email,
+            "secret_attempt": data.admin_secret
+        }).execute()
+        if rpc_res.data and rpc_res.data.get("success"):
+            return {
+                "security_question": rpc_res.data.get("security_question"),
+                "username": rpc_res.data.get("username")
+            }
+        elif rpc_res.data and not rpc_res.data.get("success"):
+            raise HTTPException(status_code=400, detail=rpc_res.data.get("detail", "Error verifying recovery request"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.warning(f"Supabase RPC forgot password fallback: {e}")
     
     res = supabase.table("admins").select("security_question, username").eq("email", data.email).execute()
     if not res.data or len(res.data) == 0:
@@ -851,6 +892,22 @@ async def forgot_password(data: ForgotPasswordRequest):
 
 @api_router.post("/admin/reset-password")
 async def reset_password(data: ResetPasswordRequest):
+    # Try calling Supabase RPC first
+    try:
+        rpc_res = supabase.rpc("admin_reset_password", {
+            "admin_email": data.email,
+            "new_password": data.new_password,
+            "security_ans": data.security_answer
+        }).execute()
+        if rpc_res.data and rpc_res.data.get("success"):
+            return {"message": "Password reset successfully. Please login with your new password."}
+        elif rpc_res.data and not rpc_res.data.get("success"):
+            raise HTTPException(status_code=400, detail=rpc_res.data.get("detail", "Incorrect security answer"))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logging.warning(f"Supabase RPC reset password fallback: {e}")
+
     res = supabase.table("admins").select("*").eq("email", data.email).execute()
     if not res.data or len(res.data) == 0:
         raise HTTPException(status_code=404, detail="Email not found")
