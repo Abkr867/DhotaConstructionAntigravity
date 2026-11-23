@@ -53,6 +53,7 @@ const AdminProjects = () => {
   const [editingProject, setEditingProject] = useState(null);
   const fileInputRef = useRef(null);
   const [existingImages, setExistingImages] = useState([]);
+  const [removedImages, setRemovedImages] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -157,8 +158,12 @@ const AdminProjects = () => {
   };
 
   const removeExistingImage = (index) => {
+    const toRemove = existingImages[index];
+    if (toRemove) {
+      setRemovedImages((prev) => [...prev, toRemove]);
+    }
     setExistingImages((prev) => prev.filter((_, i) => i !== index));
-    toast.info("Image removed from project");
+    toast.info("Image marked for removal. Click Update Project to save changes.");
   };
 
   const removeNewFile = (index) => {
@@ -247,7 +252,7 @@ const AdminProjects = () => {
       // 1. Direct Supabase Save
       try {
         if (editingProject) {
-          await updateProjectInSupabase(editingProject.id, projectData);
+          await updateProjectInSupabase(editingProject.id, projectData, removedImages);
           toast.success("Project updated successfully");
         } else {
           await createProjectInSupabase(projectData);
@@ -290,9 +295,14 @@ const AdminProjects = () => {
   const deleteProject = async (projectId) => {
     if (!window.confirm("Are you sure you want to delete this project?")) return;
     
+    const projectToDelete = projects.find((p) => p.id === projectId);
+    const imagesToDelete = projectToDelete
+      ? [projectToDelete.image_url, ...(projectToDelete.images || [])].filter(Boolean)
+      : [];
+
     try {
       try {
-        await deleteProjectFromSupabase(projectId);
+        await deleteProjectFromSupabase(projectId, imagesToDelete);
         toast.success("Project deleted successfully");
         fetchProjects();
         return;
@@ -313,6 +323,7 @@ const AdminProjects = () => {
   };
 
   const openModal = (project = null) => {
+    setRemovedImages([]);
     if (project) {
       setEditingProject(project);
       setFormData({
