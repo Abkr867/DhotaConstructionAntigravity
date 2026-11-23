@@ -168,6 +168,8 @@ const ReviewPage = () => {
                         key={idx}
                         src={img.url.startsWith('http') ? img.url : `${BACKEND_URL}${img.url}`}
                         alt={`Project ${idx + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-24 h-24 object-cover rounded"
                         onError={(e) => {
                           e.target.style.display = 'none';

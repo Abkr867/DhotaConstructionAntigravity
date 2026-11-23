@@ -89,7 +89,7 @@ const HomePage = () => {
             className="max-w-2xl"
           >
             <div className="flex items-center gap-4 mb-6">
-              <img src={COMPANY_LOGO} alt="Dhota Construction" className="w-16 h-16 rounded-lg border-2 border-[#D69A55]" />
+              <img src={COMPANY_LOGO} alt="Dhota Construction" width="64" height="64" className="w-16 h-16 rounded-lg border-2 border-[#D69A55]" />
               <span className="text-[#D69A55] text-sm font-semibold uppercase tracking-widest">
                 Since 2019 &bull; 250+ Projects Delivered
               </span>
@@ -269,6 +269,8 @@ const HomePage = () => {
               <img
                 src="https://customer-assets.emergentagent.com/job_local-img-upload/artifacts/v5lr4oo2_Untitled%20design.png"
                 alt="Dhota Construction Team"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-[500px] object-contain"
               />
               <div className="absolute -bottom-6 -left-6 bg-[#D69A55] p-6 text-white">
@@ -319,6 +321,8 @@ const HomePage = () => {
                         key={idx}
                         src={img.url.startsWith('http') ? img.url : `${BACKEND_URL}${img.url}`}
                         alt={`Project ${idx + 1}`}
+                        loading="lazy"
+                        decoding="async"
                         className="w-24 h-24 object-cover rounded"
                         onError={(e) => {
                           e.target.style.display = 'none';

@@ -14,6 +14,10 @@ const Footer = () => {
               <img 
                 src="https://customer-assets.emergentagent.com/job_construct-dhota/artifacts/u7scmm47_WhatsApp%20Image%202025-12-25%20at%2019.24.16.jpeg" 
                 alt="Dhota Construction Logo" 
+                width="40"
+                height="40"
+                loading="lazy"
+                decoding="async"
                 className="w-10 h-10 object-contain rounded"
               />
               <span className="text-white text-2xl font-bold tracking-tight" style={{ fontFamily: 'Oswald, sans-serif' }}>

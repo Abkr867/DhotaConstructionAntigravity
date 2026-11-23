@@ -98,6 +98,8 @@ const AboutPage = () => {
               <img
                 src="https://customer-assets.emergentagent.com/job_local-img-upload/artifacts/v5lr4oo2_Untitled%20design.png"
                 alt="Dhota Construction team"
+                loading="lazy"
+                decoding="async"
                 className="w-full h-[400px] object-contain"
               />
             </motion.div>
@@ -273,6 +275,8 @@ const AboutPage = () => {
                 <img
                   src={project.image}
                   alt={project.title}
+                  loading="lazy"
+                  decoding="async"
                   className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-110"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/50 to-transparent" />
