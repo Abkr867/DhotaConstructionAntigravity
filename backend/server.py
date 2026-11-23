@@ -1019,11 +1019,69 @@ async def create_project(data: ProjectGalleryCreate, payload: dict = Depends(ver
 
 @api_router.put("/admin/projects/{project_id}")
 async def update_project(project_id: str, data: ProjectGalleryCreate, payload: dict = Depends(verify_token)):
+    try:
+        existing = supabase.table("projects").select("image_url, images").eq("id", project_id).execute()
+        if existing.data and len(existing.data) > 0:
+            item = existing.data[0]
+            old_urls = set()
+            if item.get("image_url"):
+                old_urls.add(item["image_url"])
+            if item.get("images") and isinstance(item["images"], list):
+                for img in item["images"]:
+                    if img:
+                        old_urls.add(img)
+            
+            new_urls = set()
+            if data.image_url:
+                new_urls.add(data.image_url)
+            if data.images and isinstance(data.images, list):
+                for img in data.images:
+                    if img:
+                        new_urls.add(img)
+            
+            removed_urls = old_urls - new_urls
+            paths = []
+            for u in removed_urls:
+                if isinstance(u, str) and "/dhota-construction/" in u:
+                    p = u.split("/dhota-construction/")[-1].split("?")[0]
+                    paths.append(p)
+                elif isinstance(u, str) and u.startswith("projects/"):
+                    paths.append(u)
+            if paths:
+                try:
+                    supabase.storage.from_("dhota-construction").remove(paths)
+                except Exception as st_err:
+                    logging.warning(f"Failed to remove images from storage: {st_err}")
+    except Exception as e:
+        logging.warning(f"Error handling removed images during project update: {e}")
     res = supabase.table("projects").update(data.model_dump()).eq("id", project_id).execute()
     return {"message": "Project updated successfully"}
 
 @api_router.delete("/admin/projects/{project_id}")
 async def delete_project(project_id: str, payload: dict = Depends(verify_token)):
+    try:
+        existing = supabase.table("projects").select("image_url, images").eq("id", project_id).execute()
+        if existing.data and len(existing.data) > 0:
+            item = existing.data[0]
+            urls = []
+            if item.get("image_url"):
+                urls.append(item["image_url"])
+            if item.get("images") and isinstance(item["images"], list):
+                urls.extend(item["images"])
+            paths = []
+            for u in urls:
+                if isinstance(u, str) and "/dhota-construction/" in u:
+                    p = u.split("/dhota-construction/")[-1].split("?")[0]
+                    paths.append(p)
+                elif isinstance(u, str) and u.startswith("projects/"):
+                    paths.append(u)
+            if paths:
+                try:
+                    supabase.storage.from_("dhota-construction").remove(paths)
+                except Exception as st_err:
+                    logging.warning(f"Failed to remove images from storage: {st_err}")
+    except Exception as e:
+        logging.warning(f"Error fetching project images before delete: {e}")
     res = supabase.table("projects").delete().eq("id", project_id).execute()
     return {"message": "Project deleted successfully"}
 

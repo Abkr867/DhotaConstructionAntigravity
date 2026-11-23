@@ -305,6 +305,44 @@ export async function deleteInquiryFromSupabase(inquiryId) {
   return data;
 }
 
+// Helper: Extract storage file path from Supabase public URL
+export function getStoragePathFromUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  if (url.startsWith("projects/") || url.startsWith("review_images/")) {
+    return url;
+  }
+  const marker = `/${SUPABASE_BUCKET}/`;
+  if (url.includes(marker)) {
+    const parts = url.split(marker);
+    return parts[1] ? parts[1].split("?")[0] : null;
+  }
+  return null;
+}
+
+// Delete images from Supabase Storage bucket
+export async function deleteImagesFromSupabaseStorage(urlsOrPaths) {
+  if (!urlsOrPaths || !Array.isArray(urlsOrPaths) || urlsOrPaths.length === 0) return [];
+  const paths = urlsOrPaths
+    .map(getStoragePathFromUrl)
+    .filter(Boolean);
+
+  if (paths.length === 0) return [];
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(SUPABASE_BUCKET)
+      .remove(paths);
+
+    if (error) {
+      console.warn("Storage deletion warning:", error);
+    }
+    return data || [];
+  } catch (err) {
+    console.warn("Storage deletion error:", err);
+    return [];
+  }
+}
+
 // Fetch Admin Projects
 export async function fetchAdminProjectsFromSupabase() {
   const { data, error } = await supabase
@@ -318,7 +356,7 @@ export async function fetchAdminProjectsFromSupabase() {
 
 // Create Project in Supabase
 export async function createProjectInSupabase(projectData) {
-  const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `proj_${Date.now()}`;
+  const id = projectData.id || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `proj_${Date.now()}`);
   const payload = {
     id,
     title: projectData.title,
@@ -332,14 +370,26 @@ export async function createProjectInSupabase(projectData) {
     created_at: new Date().toISOString()
   };
 
-  const { data, error } = await supabase.from("projects").insert([payload]);
+  // 1. Try RPC admin_upsert_project first for guaranteed admin sync
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("admin_upsert_project", {
+      project_data: payload
+    });
+    if (!rpcError && rpcData) {
+      return rpcData;
+    }
+  } catch (_) {}
+
+  // 2. Direct table insert fallback
+  const { data, error } = await supabase.from("projects").insert([payload]).select();
   if (error) throw error;
-  return { id, ...payload };
+  return data?.[0] || { id, ...payload };
 }
 
-// Update Project in Supabase
-export async function updateProjectInSupabase(projectId, projectData) {
+// Update Project in Supabase & delete any removed images from storage
+export async function updateProjectInSupabase(projectId, projectData, removedImageUrls = []) {
   const payload = {
+    id: projectId,
     title: projectData.title,
     description: projectData.description,
     category: projectData.category,
@@ -349,17 +399,40 @@ export async function updateProjectInSupabase(projectId, projectData) {
     is_featured: !!projectData.is_featured
   };
 
+  // 1. Delete removed images from Supabase Storage
+  if (removedImageUrls && removedImageUrls.length > 0) {
+    await deleteImagesFromSupabaseStorage(removedImageUrls);
+  }
+
+  // 2. Try RPC admin_upsert_project first
+  try {
+    const { data: rpcData, error: rpcError } = await supabase.rpc("admin_upsert_project", {
+      project_data: payload
+    });
+    if (!rpcError && rpcData) {
+      return rpcData;
+    }
+  } catch (_) {}
+
+  // 3. Direct table update fallback
   const { data, error } = await supabase
     .from("projects")
     .update(payload)
-    .eq("id", projectId);
+    .eq("id", projectId)
+    .select();
 
   if (error) throw error;
-  return data;
+  return data?.[0] || payload;
 }
 
-// Delete Project from Supabase
-export async function deleteProjectFromSupabase(projectId) {
+// Delete Project from Supabase & cleanup its images from Storage
+export async function deleteProjectFromSupabase(projectId, imagesToDelete = []) {
+  // 1. Delete associated image files from Supabase Storage
+  if (imagesToDelete && imagesToDelete.length > 0) {
+    await deleteImagesFromSupabaseStorage(imagesToDelete);
+  }
+
+  // 2. Delete row from projects table
   const { data, error } = await supabase
     .from("projects")
     .delete()
