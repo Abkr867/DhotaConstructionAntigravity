@@ -445,3 +445,59 @@ export async function uploadImageToSupabase(file, folder = "projects") {
 
   return urlData.publicUrl;
 }
+
+// ==================== ADMIN SECRET KEY & RECOVERY ====================
+
+// Verify Admin Secret Key
+export async function verifyAdminSecretInSupabase(secret) {
+  const { data, error } = await supabase.rpc("verify_admin_secret", {
+    secret_attempt: (secret || "").trim()
+  });
+  if (error) throw error;
+  return !!data;
+}
+
+// Forgot Password via Supabase
+export async function forgotPasswordInSupabase(email, secret) {
+  const { data, error } = await supabase.rpc("admin_forgot_password", {
+    admin_email: (email || "").trim(),
+    secret_attempt: (secret || "").trim()
+  });
+  if (error) throw error;
+  if (!data?.success) {
+    throw new Error(data?.detail || data?.message || "Invalid email or admin secret key");
+  }
+  return data;
+}
+
+// Reset Password via Supabase
+export async function resetPasswordInSupabase(email, newPassword, securityAnswer = "", secret = "") {
+  const { data, error } = await supabase.rpc("admin_reset_password", {
+    admin_email: (email || "").trim(),
+    new_password: newPassword,
+    security_ans: (securityAnswer || "").trim(),
+    secret_attempt: (secret || "").trim()
+  });
+  if (error) throw error;
+  if (!data?.success) {
+    throw new Error(data?.detail || data?.message || "Failed to reset password");
+  }
+  return data;
+}
+
+// Register Admin User via Supabase
+export async function registerAdminInSupabase(username, email, password, secret, securityQuestion, securityAnswer) {
+  const { data, error } = await supabase.rpc("admin_register_user", {
+    admin_username: (username || "").trim(),
+    admin_email: (email || "").trim(),
+    admin_password: password,
+    secret_attempt: (secret || "").trim(),
+    security_q: securityQuestion || "What is the company name?",
+    security_ans: (securityAnswer || "").trim()
+  });
+  if (error) throw error;
+  if (!data?.success) {
+    throw new Error(data?.detail || data?.message || "Registration failed");
+  }
+  return data;
+}
