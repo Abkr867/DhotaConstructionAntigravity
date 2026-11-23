@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+export { BACKEND_URL, API } from "./api";
 
 export const SUPABASE_URL = "https://eaqgzpigbwortoeeqjjv.supabase.co";
 export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVhcWd6cGlnYndvcnRvZWVxamp2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUxOTMzNjYsImV4cCI6MjExMDc2OTM2Nn0.U_399en92oPBlduU0XgjYS77Y534bvLgVOUNPkKeqVM";

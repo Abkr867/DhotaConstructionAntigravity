@@ -21,11 +21,10 @@ import {
   updateReviewStatusInSupabase, 
   updateReviewImageApprovalInSupabase, 
   deleteReviewFromSupabase, 
-  signOutAdmin 
+  signOutAdmin,
+  API,
+  BACKEND_URL 
 } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
 
 const AdminReviews = () => {
   const navigate = useNavigate();

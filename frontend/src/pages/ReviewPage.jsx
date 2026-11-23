@@ -10,10 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import axios from "axios";
-import { fetchReviewsFromSupabase, submitReviewToSupabase } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
+import { fetchReviewsFromSupabase, submitReviewToSupabase, API, BACKEND_URL } from "@/lib/supabase";
 
 const ReviewPage = () => {
   const [testimonials, setTestimonials] = useState([]);

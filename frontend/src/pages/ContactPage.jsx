@@ -26,10 +26,7 @@ import {
 } from "@/components/ui/accordion";
 import { toast } from "sonner";
 import axios from "axios";
-import { submitInquiryToSupabase, FAQS } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
+import { submitInquiryToSupabase, FAQS, API, BACKEND_URL } from "@/lib/supabase";
 
 const ContactPage = () => {
   const [formData, setFormData] = useState({

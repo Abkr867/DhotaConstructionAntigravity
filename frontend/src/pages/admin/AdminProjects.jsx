@@ -39,11 +39,10 @@ import {
   updateProjectInSupabase, 
   deleteProjectFromSupabase, 
   uploadImageToSupabase, 
-  signOutAdmin 
+  signOutAdmin,
+  API,
+  BACKEND_URL 
 } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
 
 const AdminProjects = () => {
   const navigate = useNavigate();

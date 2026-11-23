@@ -14,10 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
-import { fetchAdminStatsFromSupabase, signOutAdmin } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
+import { fetchAdminStatsFromSupabase, signOutAdmin, API, BACKEND_URL } from "@/lib/supabase";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();

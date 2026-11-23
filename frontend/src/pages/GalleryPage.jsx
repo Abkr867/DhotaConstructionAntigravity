@@ -4,10 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowRight, MapPin, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import axios from "axios";
-import { fetchProjectsFromSupabase } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
+import { fetchProjectsFromSupabase, API, BACKEND_URL } from "@/lib/supabase";
 
 const GalleryPage = () => {
   const [projects, setProjects] = useState([]);

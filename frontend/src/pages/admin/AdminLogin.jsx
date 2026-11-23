@@ -17,11 +17,10 @@ import {
   signInAdmin, 
   forgotPasswordInSupabase, 
   resetPasswordInSupabase, 
-  registerAdminInSupabase 
+  registerAdminInSupabase,
+  API,
+  BACKEND_URL 
 } from "@/lib/supabase";
-
-const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
-const API = `${BACKEND_URL}/api`;
 
 const SECURITY_QUESTIONS = [
   "What is your mother's maiden name?",
