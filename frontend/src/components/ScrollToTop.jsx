@@ -1,14 +1,23 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 /**
  * ScrollToTop component:
- * Listens to location changes in react-router-dom (HashRouter)
- * and resets scroll position immediately to top (0, 0)
- * so every page starts from the very beginning.
+ * 1. Automatically redirects legacy '#/...' hash URLs to clean paths ('/...').
+ * 2. Listens to location changes in react-router-dom (BrowserRouter)
+ *    and resets scroll position immediately to top (0, 0).
  */
 const ScrollToTop = () => {
   const { pathname, search, hash } = useLocation();
+  const navigate = useNavigate();
+
+  // Redirect legacy hash-based URLs (e.g. https://deshdarshantravels.com/#/admin -> /admin)
+  useEffect(() => {
+    if (window.location.hash && window.location.hash.startsWith("#/")) {
+      const cleanPath = window.location.hash.replace(/^#/, "");
+      navigate(cleanPath, { replace: true });
+    }
+  }, [navigate]);
 
   useEffect(() => {
     // If navigating to an in-page element with an anchor hash

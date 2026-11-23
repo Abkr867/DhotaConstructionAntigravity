@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import "@/App.css";
-import { HashRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -40,7 +40,7 @@ const PageLoader = () => (
 function App() {
   return (
     <div className="App min-h-screen flex flex-col">
-      <HashRouter>
+      <BrowserRouter>
         <ScrollToTop />
         <Suspense fallback={<PageLoader />}>
           <Routes>
@@ -189,7 +189,7 @@ function App() {
           </Routes>
         </Suspense>
         <Toaster position="top-right" />
-      </HashRouter>
+      </BrowserRouter>
     </div>
   );
 }
