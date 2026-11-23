@@ -33,6 +33,12 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import axios from "axios";
+import { 
+  fetchAdminInquiriesFromSupabase, 
+  updateInquiryStatusInSupabase, 
+  deleteInquiryFromSupabase, 
+  signOutAdmin 
+} from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -47,14 +53,22 @@ const AdminInquiries = () => {
   const [selectedInquiry, setSelectedInquiry] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+  const handleLogout = useCallback(async () => {
+    await signOutAdmin();
     navigate("/admin/login");
   }, [navigate]);
 
   const fetchInquiries = useCallback(async () => {
     try {
+      try {
+        const data = await fetchAdminInquiriesFromSupabase();
+        setInquiries(data);
+        setIsLoading(false);
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase inquiries fetch fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       const response = await axios.get(`${API}/admin/inquiries`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -100,6 +114,18 @@ const AdminInquiries = () => {
 
   const updateStatus = async (inquiryId, status, notes = null) => {
     try {
+      try {
+        await updateInquiryStatusInSupabase(inquiryId, status, notes);
+        toast.success("Status updated successfully");
+        fetchInquiries();
+        if (selectedInquiry?.id === inquiryId) {
+          setSelectedInquiry({ ...selectedInquiry, status, notes });
+        }
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase update inquiry fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.put(
         `${API}/admin/inquiries/${inquiryId}`,
@@ -121,6 +147,16 @@ const AdminInquiries = () => {
     if (!window.confirm("Are you sure you want to delete this inquiry?")) return;
     
     try {
+      try {
+        await deleteInquiryFromSupabase(inquiryId);
+        toast.success("Inquiry deleted successfully");
+        fetchInquiries();
+        setIsModalOpen(false);
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase delete inquiry fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       await axios.delete(`${API}/admin/inquiries/${inquiryId}`, {
         headers: { Authorization: `Bearer ${token}` }

@@ -196,3 +196,252 @@ export async function submitReviewToSupabase(reviewData) {
   }
   return { id, ...payload };
 }
+
+// ==================== ADMIN SUPABASE AUTH & OPERATIONS ====================
+
+// Admin Sign In via Supabase Auth
+export async function signInAdmin(emailOrUsername, password) {
+  let email = emailOrUsername.trim();
+  if (!email.includes("@")) {
+    email = `${email}@dhotaconstruction.com`;
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const token = data.session?.access_token;
+  const user = {
+    id: data.user?.id,
+    username: data.user?.user_metadata?.username || email.split("@")[0],
+    email: data.user?.email,
+    role: data.user?.app_metadata?.role || "admin"
+  };
+
+  if (token) {
+    localStorage.setItem("adminToken", token);
+    localStorage.setItem("adminUser", JSON.stringify(user));
+  }
+
+  return { session: data.session, user, token };
+}
+
+// Admin Sign Out
+export async function signOutAdmin() {
+  await supabase.auth.signOut().catch(() => {});
+  localStorage.removeItem("adminToken");
+  localStorage.removeItem("adminUser");
+}
+
+// Get Current Admin Session
+export async function getAdminSession() {
+  const { data } = await supabase.auth.getSession();
+  if (data?.session) {
+    return data.session;
+  }
+  const token = localStorage.getItem("adminToken");
+  return token ? { access_token: token } : null;
+}
+
+// Fetch Admin Stats
+export async function fetchAdminStatsFromSupabase() {
+  const [inqRes, newInqRes, projRes, revRes, recentInqRes] = await Promise.all([
+    supabase.from("inquiries").select("*", { count: "exact", head: true }),
+    supabase.from("inquiries").select("*", { count: "exact", head: true }).eq("status", "new"),
+    supabase.from("projects").select("*", { count: "exact", head: true }),
+    supabase.from("reviews").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("inquiries").select("*").order("created_at", { ascending: false }).limit(5)
+  ]);
+
+  return {
+    total_inquiries: inqRes.count || 0,
+    new_inquiries: newInqRes.count || 0,
+    total_projects: projRes.count || 0,
+    pending_reviews: revRes.count || 0,
+    recent_inquiries: recentInqRes.data || []
+  };
+}
+
+// Fetch Admin Inquiries
+export async function fetchAdminInquiriesFromSupabase() {
+  const { data, error } = await supabase
+    .from("inquiries")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(500);
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Update Inquiry Status
+export async function updateInquiryStatusInSupabase(inquiryId, status, notes = null) {
+  const updatePayload = { status };
+  if (notes !== null) {
+    updatePayload.notes = notes;
+  }
+  const { data, error } = await supabase
+    .from("inquiries")
+    .update(updatePayload)
+    .eq("id", inquiryId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Delete Inquiry
+export async function deleteInquiryFromSupabase(inquiryId) {
+  const { data, error } = await supabase
+    .from("inquiries")
+    .delete()
+    .eq("id", inquiryId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Fetch Admin Projects
+export async function fetchAdminProjectsFromSupabase() {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Create Project in Supabase
+export async function createProjectInSupabase(projectData) {
+  const id = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `proj_${Date.now()}`;
+  const payload = {
+    id,
+    title: projectData.title,
+    description: projectData.description,
+    category: projectData.category || "residential",
+    location: projectData.location,
+    image_url: projectData.image_url,
+    images: projectData.images || [],
+    project_folder: projectData.project_folder || null,
+    is_featured: !!projectData.is_featured,
+    created_at: new Date().toISOString()
+  };
+
+  const { data, error } = await supabase.from("projects").insert([payload]);
+  if (error) throw error;
+  return { id, ...payload };
+}
+
+// Update Project in Supabase
+export async function updateProjectInSupabase(projectId, projectData) {
+  const payload = {
+    title: projectData.title,
+    description: projectData.description,
+    category: projectData.category,
+    location: projectData.location,
+    image_url: projectData.image_url,
+    images: projectData.images || [],
+    is_featured: !!projectData.is_featured
+  };
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update(payload)
+    .eq("id", projectId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Delete Project from Supabase
+export async function deleteProjectFromSupabase(projectId) {
+  const { data, error } = await supabase
+    .from("projects")
+    .delete()
+    .eq("id", projectId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Fetch Admin Reviews
+export async function fetchAdminReviewsFromSupabase() {
+  const { data, error } = await supabase
+    .from("reviews")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
+// Update Review Status in Supabase
+export async function updateReviewStatusInSupabase(reviewId, status) {
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ status })
+    .eq("id", reviewId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Approve/Reject Review Image
+export async function updateReviewImageApprovalInSupabase(reviewId, imageUrl, approved) {
+  const { data: revData, error: fetchErr } = await supabase
+    .from("reviews")
+    .select("images")
+    .eq("id", reviewId)
+    .single();
+
+  if (fetchErr) throw fetchErr;
+
+  const images = (revData.images || []).map((img) =>
+    img.url === imageUrl ? { ...img, approved } : img
+  );
+
+  const { data, error } = await supabase
+    .from("reviews")
+    .update({ images })
+    .eq("id", reviewId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Delete Review from Supabase
+export async function deleteReviewFromSupabase(reviewId) {
+  const { data, error } = await supabase
+    .from("reviews")
+    .delete()
+    .eq("id", reviewId);
+
+  if (error) throw error;
+  return data;
+}
+
+// Upload file directly to Supabase Storage
+export async function uploadImageToSupabase(file, folder = "projects") {
+  const fileExt = file.name ? file.name.split(".").pop() : "jpg";
+  const fileName = `${folder}/${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(SUPABASE_BUCKET)
+    .upload(fileName, file, {
+      cacheControl: "3600",
+      upsert: true
+    });
+
+  if (uploadError) throw uploadError;
+
+  const { data: urlData } = supabase.storage
+    .from(SUPABASE_BUCKET)
+    .getPublicUrl(fileName);
+
+  return urlData.publicUrl;
+}

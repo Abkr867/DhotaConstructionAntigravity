@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import axios from "axios";
+import { fetchAdminStatsFromSupabase, signOutAdmin } from "@/lib/supabase";
 
 const BACKEND_URL = process.env.REACT_APP_API_URL || process.env.REACT_APP_BACKEND_URL || "http://localhost:8001";
 const API = `${BACKEND_URL}/api`;
@@ -24,15 +25,23 @@ const AdminDashboard = () => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("adminToken");
-    localStorage.removeItem("adminUser");
+  const handleLogout = useCallback(async () => {
+    await signOutAdmin();
     toast.success("Logged out successfully");
     navigate("/admin/login");
   }, [navigate]);
 
   const fetchStats = useCallback(async () => {
     try {
+      try {
+        const statsData = await fetchAdminStatsFromSupabase();
+        setStats(statsData);
+        setIsLoading(false);
+        return;
+      } catch (sbErr) {
+        console.warn("Direct Supabase stats query fallback:", sbErr);
+      }
+
       const token = localStorage.getItem("adminToken");
       const response = await axios.get(`${API}/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` }
